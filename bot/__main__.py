@@ -18,53 +18,81 @@ from .helper.telegram_helper.button_build import ButtonMaker
 from .modules import authorize, list, cancel_mirror, mirror_status, mirror_leech, clone, ytdlp, shell, eval, delete, count, leech_settings, search, rss, bt_select
 from .helper.ext_utils.telegraph_helper import telegraph
 
+IMAGE_STATS = "https://graph.org/file/51d01bd752ca54ad24686.jpg"
+
+def progress_bar(percentage):
+    p_used = '■'
+    p_total = '□'
+    if isinstance(percentage, str):
+        return 'NaN'
+    try:
+        percentage=int(percentage)
+    except:
+        percentage = 0
+    return ''.join(
+        p_used if i <= percentage // 10 else p_total for i in range(1, 11)
+    )
 def stats(update, context):
     if ospath.exists('.git'):
-        last_commit = check_output(["git log -1 --date=short --pretty=format:'%cd <b>From</b> %cr'"], shell=True).decode()
+        last_commit = check_output(["git log -1 --date=short --pretty=format:'%cd \n<b>├From</b> %cr'"], shell=True).decode()
+        botVersion = check_output(["git log -1 --date=format:v%y.%m%d.%H%M --pretty=format:%cd"], shell=True).decode()
     else:
         last_commit = 'No UPSTREAM_REPO'
-    currentTime = get_readable_time(time() - botStartTime)
-    total, used, free, disk= disk_usage('/')
-    total = get_readable_file_size(total)
-    used = get_readable_file_size(used)
-    free = get_readable_file_size(free)
-    sent = get_readable_file_size(net_io_counters().bytes_sent)
-    recv = get_readable_file_size(net_io_counters().bytes_recv)
-    cpuUsage = cpu_percent(interval=0.5)
+        botVersion = 'No UPSTREAM_REPO'
+    total, used, free, disk = disk_usage('/')
+    cpuUsage = cpu_percent(interval=1)
     memory = virtual_memory()
     mem_p = memory.percent
-    mem_t = get_readable_file_size(memory.total)
-    mem_a = get_readable_file_size(memory.available)
-    mem_u = get_readable_file_size(memory.used)
-    stats = f'<b>Commit Date:</b> {last_commit}\n\n'\
-            f'<b>Bot Uptime:</b> {currentTime}\n\n'\
-            f'<b>Total Disk Space:</b> {total}\n'\
-            f'<b>Used:</b> {used} | <b>Free:</b> {free}\n\n'\
-            f'<b>Up:</b> {sent} | '\
-            f'<b>Down:</b> {recv}\n\n'\
-            f'<b>CPU:</b> {cpuUsage}% | '\
-            f'<b>RAM:</b> {mem_p}% | '\
-            f'<b>DISK:</b> {disk}%\n\n'\
-            f'<b>Total Memory:</b> {mem_t}\n'\
-            f'<b>Free:</b> {mem_a} | '\
-            f'<b>Used:</b> {mem_u}\n\n'
-    sendMessage(stats, context.bot, update.message)
-
+    swap = swap_memory()
+    stats = f'<b>BOT STATISTICS</b>\n'\
+            f'<b>┌Uptime:</b> {get_readable_time(time() - botStartTime)}\n'\
+            f'<b>├Version: </b>{ botVersion}\n'\
+            f'<b>├Updated On:</b> {last_commit}\n'\
+            f'<b>└OS Uptime:</b> {get_readable_time(time() - boot_time())}\n\n'\
+            f'<b>CPU</b>\n'\
+            f'<b>┌</b><code>[{progress_bar(cpuUsage)} |{cpuUsage}%</code>\n'\
+            f'<b>├Physical Cores:</b> {cpu_count(logical=False)}\n'\
+            f'<b>└Total Cores:</b> {cpu_count(logical=True)}\n\n'\
+            f'<b>DISK</b>\n'\
+            f'<b>┌</b><code>[{progress_bar(disk)} |{disk}%</code>\n'\
+            f'<b>├Total Space:</b> {get_readable_file_size(total)}\n'\
+            f'<b>├Used:</b> {get_readable_file_size(used)}\n'\
+            f'<b>└Free:</b> {get_readable_file_size(free)}\n\n'\
+            f'<b>RAM</b>\n'\
+            f'<b>┌</b><code>[{progress_bar(mem_p)} |{mem_p}%</code>\n'\
+            f'<b>├Total:</b> {get_readable_file_size(memory.total)}\n'\
+            f'<b>├Free:</b> {get_readable_file_size(memory.available)}\n'\
+            f'<b>└Used:</b> {get_readable_file_size(memory.used)}\n\n'\
+            f'<b>SWAP</b>\n'\
+            f'<b>┌</b><code>[{progress_bar(swap)} |{swap.percent}%</code>\n'\
+            f'<b>├Total:</b> {get_readable_file_size(swap.total)}\n'\
+            f'<b>└Used:</b> {get_readable_file_size(swap.used)}\n\n'\
+            f'<b>Made by #LinkZz_MBBS</b>'
+    update.effective_message.reply_photo(
+                IMAGE_STATS,
+                stats,
+                parse_mode=ParseMode.HTML,
+                reply_markup=InlineKeyboardMarkup(
+                    [[
+                         InlineKeyboardButton(
+                             text="LinkZz_MBBS",
+                             url="https://telegram.dog/LinkZz_MBBS"),
+                    ]]))
 
 def start(update, context):
     buttons = ButtonMaker()
-    buttons.buildbutton(f"{START_BTN1_NAME}", f"{START_BTN1_URL}")
-    buttons.buildbutton(f"{START_BTN2_NAME}", f"{START_BTN2_URL}")
+    buttons.buildbutton("SUPPORT", "https://telegram.dog/LinkZz_MBBS")
+    buttons.buildbutton("OWNER", "https://telegram.dog/linkzzmbbsAdminbot")
     reply_markup = buttons.build_menu(2)
     if CustomFilters.authorized_user(update) or CustomFilters.authorized_chat(update):
         start_string = f'''
 This bot can mirror all your links to Google Drive or to telegram!
 Type /{BotCommands.HelpCommand} to get a list of available commands
 '''
-        sendMarkup(start_string, context.bot, update.message, reply_markup)
+        update.effective_message.reply_photo(IMAGE_STATS, start_string, parse_mode=ParseMode.HTML, reply_markup=reply_markup)
     else:
-        sendMarkup('Not an Authorized user, deploy your own helios-mirror-leech bot', context.bot, update.message, reply_markup)
-
+        msg1=f'Not an Authorized user, deploy your own mirror-leech bot\n\n If u Dont Know contact Owner'
+        update.effective_message.reply_photo(IMAGE_STATS, msg1, parse_mode=ParseMode.HTML, reply_markup=reply_markup)
 def restart(update, context):
     restart_message = sendMessage("Restarting...", context.bot, update.message)
     if Interval:
